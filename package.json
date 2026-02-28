@@ -6,23 +6,30 @@
     "description": "",
     "repository": {
         "type": "git",
-        "url": "https://github.com/wxn0brp/ValtheraDB-storage-mongodb.git"
+        "url": "https://github.com/wxn0brP/ValtheraDB-storage-mongodb.git"
     },
-    "homepage": "https://github.com/wxn0brp/ValtheraDB-storage-mongodb",
+    "homepage": "https://github.com/wxn0brP/ValtheraDB-storage-mongodb",
     "author": "wxn0brP",
     "license": "MIT",
     "type": "module",
+    "keywords": [
+        "vdb-adapter",
+        "valthera",
+        "valtheradb",
+        "mongodb",
+        "mongo"
+    ],
     "scripts": {
-        "build": "tsc && tsc-alias",
-        "start": "node dist/index.js"
+        "build": "tsc && tsc-alias"
     },
     "dependencies": {
-        "@wxn0brp/db-core": ">=0.1.3",
-        "mongodb": "^6.18.0"
+        "@wxn0brp/db-core": "~0.9.0",
+        "mongodb": "^7.1.0"
     },
     "devDependencies": {
-        "@types/node": "^22.12.0",
-        "typescript": "^5.8.3"
+        "@types/node": "*",
+        "typescript": "*",
+        "tsc-alias": "*"
     },
     "files": [
         "dist"

@@ -22,6 +22,14 @@ try {
     const ensuredAgain = await db.ensureCollection(`new_collection`);
     console.log(`Collection ensured again: ${ensuredAgain}`);
 
+    console.log(`\nAdding a new user...`);
+    const newUser = await db.c('users').add({ name: 'John Doe', age: 30 });
+    console.log(newUser);
+
+    console.log(`\nUpdating the user...`);
+    const updatedUser = await db.c('users').updateOne({ _id: newUser._id }, { age: 31 });
+    console.log(updatedUser);
+
 } catch (error) {
     console.error(`An error occurred:`, error);
 } finally {
