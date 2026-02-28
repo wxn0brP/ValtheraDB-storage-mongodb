@@ -1,0 +1,46 @@
+{
+  "name": "@wxn0brp/db-storage-mongodb",
+  "version": "0.0.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wxn0brP/ValtheraDB-storage-mongodb.git"
+  },
+  "homepage": "https://github.com/wxn0brP/ValtheraDB-storage-mongodb",
+  "author": "wxn0brP",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "vdb-adapter",
+    "valthera",
+    "valtheradb",
+    "mongodb",
+    "mongo"
+  ],
+  "dependencies": {
+    "@wxn0brp/db-core": "~0.9.0",
+    "mongodb": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "typescript": "*",
+    "tsc-alias": "*"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js",
+      "default": "./dist/*.js"
+    }
+  }
+}
