@@ -7,7 +7,7 @@ This allows you to use the ValtheraDB API and its relational engine with a power
 ## Installation
 
 ```bash
-bun i github:wxn0brP/ValtheraDB-storage-mongodb
+bun i @wxn0brp/db-storage-mongodb
 ```
 
 ## Usage
@@ -21,7 +21,7 @@ const DB_NAME = 'my-app-db';
 const db = new VdbMongo(MONGO_URI, DB_NAME, true);
 
 try {
-    const newUser = await db.add('users', { name: 'John Doe', age: 30 });
+    const newUser = await db.c('users').add({ name: 'John Doe', age: 30 });
     console.log(newUser);
 } finally {
     await db.close();
