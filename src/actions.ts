@@ -2,7 +2,7 @@ import { genId } from "@wxn0brp/db-core";
 import { ActionsBase } from "@wxn0brp/db-core/base/actions";
 import { DataInternal } from "@wxn0brp/db-core/types/data";
 import { FileCpu } from "@wxn0brp/db-core/types/fileCpu";
-import { VQuery } from "@wxn0brp/db-core/types/query";
+import * as Query from "@wxn0brp/db-core/types/query";
 import { findUtil } from "@wxn0brp/db-core/utils/action";
 import { Collection, Db, MongoClient } from "mongodb";
 import { cleanDocs, translateQuery } from "./utils";
@@ -31,7 +31,7 @@ export class MongoDbAction extends ActionsBase {
         return this._db.collection(name);
     }
 
-    async add<T>(query: VQuery): Promise<T> {
+    async add<T>(query: Query.AddQuery): Promise<T> {
         const { collection, data, id_gen = true } = query;
         const coll = this._getCollection(collection);
 
@@ -49,21 +49,21 @@ export class MongoDbAction extends ActionsBase {
         return data as T;
     }
 
-    async find<T>(query: VQuery): Promise<T[]> {
+    async find<T>(query: Query.FindQuery): Promise<T[]> {
         const { collection, search } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
         const results = await coll.find(mongoQuery).toArray();
         const cleanResults = cleanDocs(results) as T[];
         const mockFileCpu = {
-            async find(file, search, context, findOpts) {
+            async find(file, query) {
                 return cleanResults as DataInternal[];
             },
         } as FileCpu;
         return await findUtil(query, mockFileCpu, [""]) as T[];
     }
 
-    async findOne<T>(query: VQuery): Promise<T | null> {
+    async findOne<T>(query: Query.FindOneQuery): Promise<T | null> {
         const { collection, search } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
@@ -71,7 +71,7 @@ export class MongoDbAction extends ActionsBase {
         return cleanDocs(result) as T | null;
     }
 
-    async update(query: VQuery): Promise<DataInternal[]> {
+    async update(query: Query.UpdateQuery): Promise<DataInternal[]> {
         const { collection, search, updater } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
@@ -80,7 +80,7 @@ export class MongoDbAction extends ActionsBase {
         return cleanDocs(result) as DataInternal[];
     }
 
-    async updateOne(query: VQuery): Promise<DataInternal | null> {
+    async updateOne(query: Query.UpdateQuery): Promise<DataInternal | null> {
         const { collection, search, updater } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
@@ -89,7 +89,7 @@ export class MongoDbAction extends ActionsBase {
         return cleanDocs(result) as DataInternal | null;
     }
 
-    async remove(query: VQuery): Promise<DataInternal[]> {
+    async remove(query: Query.RemoveQuery): Promise<DataInternal[]> {
         const { collection, search } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
@@ -98,7 +98,7 @@ export class MongoDbAction extends ActionsBase {
         return cleanDocs(result) as DataInternal[];
     }
 
-    async removeOne(query: VQuery): Promise<DataInternal | null> {
+    async removeOne(query: Query.RemoveQuery): Promise<DataInternal | null> {
         const { collection, search } = query;
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
@@ -113,9 +113,9 @@ export class MongoDbAction extends ActionsBase {
         return collections.map(c => c.name);
     }
 
-    async ensureCollection(query: VQuery): Promise<boolean> {
+    async ensureCollection(collection: string): Promise<boolean> {
         try {
-            await this._db.createCollection(query.collection);
+            await this._db.createCollection(collection);
             return true;
         } catch (error: any) {
             if (error.codeName === 'NamespaceExists') { return true; }
@@ -123,13 +123,12 @@ export class MongoDbAction extends ActionsBase {
         }
     }
 
-    async issetCollection(query: VQuery): Promise<boolean> {
+    async issetCollection(collection: string): Promise<boolean> {
         const collections = await this.getCollections();
-        return collections.includes(query.collection);
+        return collections.includes(collection);
     }
 
-    async removeCollection(query: VQuery): Promise<boolean> {
-        const { collection } = query;
+    async removeCollection(collection: string): Promise<boolean> {
         try {
             await this._db.dropCollection(collection);
             return true;

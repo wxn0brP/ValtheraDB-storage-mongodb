@@ -23,7 +23,7 @@
         "build": "tsc && tsc-alias"
     },
     "dependencies": {
-        "@wxn0brp/db-core": "~0.9.0",
+        "@wxn0brp/db-core": "~0.10.0",
         "mongodb": "^7.1.0"
     },
     "devDependencies": {
