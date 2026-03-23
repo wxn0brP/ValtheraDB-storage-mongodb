@@ -28,7 +28,7 @@
     },
     "devDependencies": {
         "@types/node": "*",
-        "typescript": "*",
+        "typescript": "^5",
         "tsc-alias": "*"
     },
     "files": [
