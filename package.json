@@ -23,13 +23,13 @@
         "build": "tsc && tsc-alias"
     },
     "dependencies": {
-        "@wxn0brp/db-core": "~0.10.0",
-        "mongodb": "^7.1.0"
+        "@wxn0brp/db-core": "^0.10.4",
+        "mongodb": "^7.1.1"
     },
     "devDependencies": {
         "@types/node": "*",
-        "typescript": "^5",
-        "tsc-alias": "*"
+        "typescript": "^6",
+        "tsc-alias": "^1"
     },
     "files": [
         "dist"
