@@ -1,8 +1,8 @@
-import { VdbMongo } from "./class";
+import { MongoDbAction } from "./actions";
 export * from "./class";
 
 export const DYNAMIC = {
     mongodb(mongoUri: string, dbName: string) {
-        return new VdbMongo(mongoUri, dbName);
+        return new MongoDbAction(mongoUri, dbName);
     }
 }
