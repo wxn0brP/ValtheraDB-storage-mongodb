@@ -6,6 +6,7 @@ import { VQueryT } from "@wxn0brp/db-core/types/query";
 import { findUtil } from "@wxn0brp/db-core/utils/action";
 import { Collection, Db, MongoClient } from "mongodb";
 import { cleanDocs, translateQuery } from "./utils";
+import { addId } from "@wxn0brp/db-core/helpers/addId";
 
 export class MongoDbAction extends ActionsBase {
     _client: MongoClient;
@@ -41,9 +42,7 @@ export class MongoDbAction extends ActionsBase {
             return data;
         }
 
-        if (id_gen && !data._id) {
-            data._id = genId();
-        }
+        await addId(data, this, id_gen);
 
         await coll.insertOne(data);
         return data;
@@ -54,13 +53,8 @@ export class MongoDbAction extends ActionsBase {
         const coll = this._getCollection(collection);
         const mongoQuery = translateQuery(search);
         const results = await coll.find(mongoQuery).toArray();
-        const cleanResults = cleanDocs(results);
-        const mockFileCpu = {
-            async find(file, query) {
-                return cleanResults as DataInternal[];
-            },
-        } as FileCpu;
-        return await findUtil(query, mockFileCpu, [""]);
+        const cleanResults = cleanDocs(results)
+        return await findUtil(query, cleanResults, [""]);
     }
 
     async findOne(query: VQueryT.FindOne) {
