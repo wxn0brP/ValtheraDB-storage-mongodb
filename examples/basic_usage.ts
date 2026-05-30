@@ -1,9 +1,11 @@
-import { VdbMongo } from "../src";
+import { ValtheraClass } from "@wxn0brp/db-core";
+import { MongoDbAction } from "../src";
 
 const MONGO_URI = "mongodb://localhost:27017";
 const DB_NAME = "vdb-mongo-bridge-test";
 
-const db = new VdbMongo(MONGO_URI, DB_NAME, true);
+const actions = new MongoDbAction(MONGO_URI, DB_NAME);
+const db = new ValtheraClass({ dbAction: actions });
 
 try {
     console.log(`Checking if "new_collection" exists...`);
@@ -34,5 +36,5 @@ try {
     console.error(`An error occurred:`, error);
 } finally {
     await db.removeCollection(`new_collection`);
-    await db.close();
+    await actions.close();
 }

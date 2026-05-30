@@ -1,31 +1,34 @@
-import { genId } from "@wxn0brp/db-core";
 import { ActionsBase } from "@wxn0brp/db-core/base/actions";
+import { addId } from "@wxn0brp/db-core/helpers/addId";
 import { DataInternal } from "@wxn0brp/db-core/types/data";
-import { FileCpu } from "@wxn0brp/db-core/types/fileCpu";
 import { VQueryT } from "@wxn0brp/db-core/types/query";
 import { findUtil } from "@wxn0brp/db-core/utils/action";
-import { Collection, Db, MongoClient } from "mongodb";
-import { cleanDocs, translateQuery } from "./utils";
-import { addId } from "@wxn0brp/db-core/helpers/addId";
+import { hasFieldsAdvanced } from "@wxn0brp/db-core/utils/hasFieldsAdvanced";
+import { Collection, Db, MongoClient, MongoClientOptions } from "mongodb";
+import { cleanDocs, needsJsFallback, translateQuery } from "./utils";
+import { nativeAggregate } from "./utils/aggregate";
+import { isEmptyUpdate, resolveSearch, translateUpdater } from "./utils/update";
 
 export class MongoDbAction extends ActionsBase {
     _client: MongoClient;
     _db: Db;
 
-    constructor(mongoUri: string, dbName: string, public logs: boolean = false) {
+    constructor(
+        mongoUri: string,
+        dbName: string,
+        clientOpts?: MongoClientOptions,
+    ) {
         super();
-        this._client = new MongoClient(mongoUri);
+        this._client = new MongoClient(mongoUri, clientOpts);
         this._db = this._client.db(dbName);
     }
 
     async init() {
         await this._client.connect();
-        if (this.logs) console.log(`Connected to MongoDB (${this._db.databaseName})`);
     }
 
     async close() {
         await this._client.close();
-        if (this.logs) console.log(`Disconnected from MongoDB (${this._db.databaseName})`);
     }
 
     _getCollection(name: string): Collection {
@@ -33,72 +36,204 @@ export class MongoDbAction extends ActionsBase {
     }
 
     async add(query: VQueryT.Add) {
-        const { collection, data, id_gen = true } = query;
+        const { collection, data } = query;
         const coll = this._getCollection(collection);
 
-        if (id_gen === false && !data._id) {
+        if (query.id_gen === false && !data._id) {
             const dataToInsert = { ...data, _vdb_no_id: true };
             await coll.insertOne(dataToInsert);
             return data;
         }
 
-        await addId(data, this, id_gen);
+        await addId(query, this);
 
         await coll.insertOne(data);
         return data;
     }
 
     async find(query: VQueryT.Find) {
-        const { collection, search } = query;
+        const { collection, search, dbFindOpts = {}, context } = query;
         const coll = this._getCollection(collection);
+
+        const { reverse = false, offset = 0, limit = -1, sortBy, sortAsc = true, min, max, avg, groupBy, count } = dbFindOpts;
+
+        const needsAggregation = min || max || avg || groupBy || count;
+        const searchIsFunc = typeof search === "function";
+        const needsNativeFallback = !searchIsFunc && !needsJsFallback(search);
+        const canUseNative = needsNativeFallback && !needsAggregation && sortBy !== "random()" && !(reverse && !sortBy);
+
+        if (canUseNative) {
+            const mongoQuery = translateQuery(search);
+            let cursor = coll.find(mongoQuery);
+            if (sortBy) cursor = cursor.sort({ [sortBy]: sortAsc ? 1 : -1 });
+            if (offset > 0) cursor = cursor.skip(offset);
+            if (limit !== -1) cursor = cursor.limit(limit);
+            const results = await cursor.toArray();
+            return cleanDocs(results);
+        }
+
+        if (needsAggregation && needsNativeFallback) {
+            const mongoQuery = translateQuery(search);
+            return await nativeAggregate(coll, mongoQuery, dbFindOpts);
+        }
+
+        if (searchIsFunc) {
+            const all = await coll.find({}).toArray();
+            let filtered = cleanDocs(all).filter((d: any) => search(d, context));
+            return await findUtil(query, filtered, [""]);
+        }
+
+        if (needsJsFallback(search)) {
+            const all = await coll.find({}).toArray();
+            const allData = cleanDocs(all).filter((d: any) => hasFieldsAdvanced(d, search));
+            return await findUtil(query, allData, [""]);
+        }
+
         const mongoQuery = translateQuery(search);
         const results = await coll.find(mongoQuery).toArray();
-        const cleanResults = cleanDocs(results)
-        return await findUtil(query, cleanResults, [""]);
+        const clean = cleanDocs(results);
+        return await findUtil(query, clean, [""]);
     }
 
     async findOne(query: VQueryT.FindOne) {
-        const { collection, search } = query;
+        const { collection, search, context } = query;
         const coll = this._getCollection(collection);
+
+        if (typeof search === "function") {
+            const all = await coll.find({}).toArray();
+            const found = cleanDocs(all).find((d: any) => search(d, context));
+            return found ?? null;
+        }
+
+        if (needsJsFallback(search)) {
+            const all = await coll.find({}).toArray();
+            const found = cleanDocs(all).find((d: any) => hasFieldsAdvanced(d, search));
+            return found ?? null;
+        }
+
         const mongoQuery = translateQuery(search);
         const result = await coll.findOne(mongoQuery);
         return cleanDocs(result);
     }
 
     async update(query: VQueryT.Update) {
-        const { collection, search, updater } = query;
+        const { collection, search, updater, context } = query;
         const coll = this._getCollection(collection);
-        const mongoQuery = translateQuery(search);
-        await coll.updateMany(mongoQuery, { $set: updater });
-        const result = await coll.find(mongoQuery).toArray();
-        return cleanDocs(result);
+
+        if (typeof updater === "function") {
+            const { filter, allData } = await resolveSearch(search, coll, context);
+            const toUpdate = allData ?? await coll.find(filter).toArray();
+            const updated = [];
+            for (const doc of cleanDocs(toUpdate)) {
+                const mod = updater(doc, context);
+                if (mod) {
+                    await coll.updateOne({ _id: doc._id }, { $set: mod });
+                    Object.assign(doc, mod);
+                }
+                updated.push(doc);
+            }
+            return updated;
+        }
+
+        const { filter, allData } = await resolveSearch(search, coll, context);
+        if (allData !== null) {
+            const mongoUpdate = translateUpdater(updater);
+            if (!isEmptyUpdate(mongoUpdate)) {
+                for (const doc of allData) {
+                    await coll.updateOne({ _id: doc._id }, mongoUpdate);
+                }
+            }
+            return allData;
+        }
+
+        const mongoUpdate = translateUpdater(updater);
+        if (!isEmptyUpdate(mongoUpdate)) {
+            await coll.updateMany(filter!, mongoUpdate);
+            const result = await coll.find(filter).toArray();
+            return cleanDocs(result);
+        }
+        const emptyResult = await coll.find(filter).toArray();
+        return cleanDocs(emptyResult);
     }
 
     async updateOne(query: VQueryT.Update) {
-        const { collection, search, updater } = query;
+        const { collection, search, updater, context } = query;
         const coll = this._getCollection(collection);
-        const mongoQuery = translateQuery(search);
-        await coll.updateOne(mongoQuery, { $set: updater });
-        const result = await coll.findOne(mongoQuery);
+
+        if (typeof updater === "function") {
+            const { filter, allData } = await resolveSearch(search, coll, context);
+
+            let doc: any;
+            if (allData !== null) {
+                doc = allData[0] ?? null;
+            } else {
+                doc = await coll.findOne(filter);
+            }
+
+            if (!doc) return null;
+            const mod = updater(doc, context);
+            if (mod) {
+                await coll.updateOne({ _id: doc._id }, { $set: mod });
+                Object.assign(doc, mod);
+            }
+            return cleanDocs(doc) as DataInternal | null;
+        }
+
+        const { filter, allData } = await resolveSearch(search, coll, context);
+
+        if (allData !== null) {
+            const doc = allData[0] ?? null;
+            if (!doc) return null;
+            const mongoUpdate = translateUpdater(updater);
+            if (!isEmptyUpdate(mongoUpdate)) {
+                await coll.updateOne({ _id: doc._id }, mongoUpdate);
+            }
+            return doc;
+        }
+
+        const mongoUpdate = translateUpdater(updater);
+        const result = await coll.findOne(filter);
+        if (!result) return null;
+        if (!isEmptyUpdate(mongoUpdate)) {
+            await coll.updateOne(filter, mongoUpdate);
+            const updated = await coll.findOne(filter);
+            return cleanDocs(updated) as DataInternal | null;
+        }
         return cleanDocs(result) as DataInternal | null;
     }
 
     async remove(query: VQueryT.Remove) {
-        const { collection, search } = query;
+        const { collection, search, context } = query;
         const coll = this._getCollection(collection);
-        const mongoQuery = translateQuery(search);
-        const result = await coll.find(mongoQuery).toArray();
-        await coll.deleteMany(mongoQuery);
+
+        const { filter, allData } = await resolveSearch(search, coll, context);
+
+        if (allData !== null) {
+            for (const doc of allData) {
+                await coll.deleteOne({ _id: doc._id });
+            }
+            return allData;
+        }
+
+        const result = await coll.find(filter).toArray();
+        await coll.deleteMany(filter);
         return cleanDocs(result) as DataInternal[];
     }
 
     async removeOne(query: VQueryT.Remove) {
-        const { collection, search } = query;
+        const { collection, search, context } = query;
         const coll = this._getCollection(collection);
-        const mongoQuery = translateQuery(search);
 
-        const result = await coll.findOne(mongoQuery);
-        await coll.deleteOne(mongoQuery);
+        const { filter, allData } = await resolveSearch(search, coll, context);
+
+        if (allData !== null) {
+            const doc = allData[0] ?? null;
+            if (doc) await coll.deleteOne({ _id: doc._id });
+            return doc;
+        }
+
+        const result = await coll.findOne(filter);
+        if (result) await coll.deleteOne(filter);
         return cleanDocs(result) as DataInternal | null;
     }
 

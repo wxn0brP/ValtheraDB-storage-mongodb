@@ -13,17 +13,23 @@ bun i @wxn0brp/db-storage-mongodb
 ## Usage
 
 ```typescript
-import { VdbMongo } from '@wxn0brp/db-storage-mongodb';
+import { ValtheraClass } from "@wxn0brp/db-core";
+import { MongoDbAction } from "@wxn0brp/db-storage-mongodb";
 
-const MONGO_URI = 'mongodb://localhost:27017';
-const DB_NAME = 'my-app-db';
+const MONGO_URI = "mongodb://localhost:27017";
+const DB_NAME = "my-app-db";
 
-const db = new VdbMongo(MONGO_URI, DB_NAME, true);
+const actions = new MongoDbAction(MONGO_URI, DB_NAME);
+const db = new ValtheraClass({ dbAction: actions });
 
 try {
-    const newUser = await db.c('users').add({ name: 'John Doe', age: 30 });
+    const newUser = await db.c("users").add({ name: "John Doe", age: 30 });
     console.log(newUser);
 } finally {
-    await db.close();
+    await actions.close();
 }
 ```
+
+## License
+
+MIT

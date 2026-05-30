@@ -1,8 +1,9 @@
+import { MongoClientOptions } from "mongodb";
 import { MongoDbAction } from "./actions";
-export * from "./class";
+export * from "./actions";
 
 export const DYNAMIC = {
-    mongodb(mongoUri: string, dbName: string) {
-        return new MongoDbAction(mongoUri, dbName);
+    mongodb(mongoUri: string, dbName: string, clientOpts?: MongoClientOptions) {
+        return new MongoDbAction(mongoUri, dbName, clientOpts);
     }
 }
