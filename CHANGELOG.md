@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.111.1](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.111.0...v0.111.1) (2026-06-02)
+
+
+### Features
+
+* e2e test & fix api & improve ci ([35581f0](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/commit/35581f06fd7bd6b555708ca994ca8bfeeae5997a))
+
+
+### Bug Fixes
+
+* deps ([e16f3a4](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/commit/e16f3a4edc3c4c0c5d8bb838d376a98aa82f1c44))
+
 ## [0.111.0](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.110.0...v0.111.0) (2026-06-02)
 
 
