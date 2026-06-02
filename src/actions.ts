@@ -4,6 +4,7 @@ import { DataInternal } from "@wxn0brp/db-core/types/data";
 import { VQueryT } from "@wxn0brp/db-core/types/query";
 import { findUtil } from "@wxn0brp/db-core/utils/action";
 import { hasFieldsAdvanced } from "@wxn0brp/db-core/utils/hasFieldsAdvanced";
+import { updateFindObject } from "@wxn0brp/db-core/utils/updateFindObject";
 import { Collection, Db, MongoClient, MongoClientOptions } from "mongodb";
 import { cleanDocs, needsJsFallback, translateQuery } from "./utils";
 import { nativeAggregate } from "./utils/aggregate";
@@ -35,6 +36,22 @@ export class MongoDbAction extends ActionsBase {
         return this._db.collection(name);
     }
 
+    _applyFindOpts<T extends DataInternal | DataInternal[] | null | undefined>(
+        data: T,
+        findOpts: VQueryT.Find["findOpts"],
+    ): T {
+        if (!findOpts || Object.keys(findOpts).length === 0)
+            return data;
+
+        if (Array.isArray(data))
+            return data.map(doc => updateFindObject({ ...doc }, findOpts)) as T;
+
+        if (data && typeof data === "object")
+            return updateFindObject({ ...data }, findOpts) as T;
+
+        return data;
+    }
+
     async add(query: VQueryT.Add) {
         const { collection, data } = query;
         const coll = this._getCollection(collection);
@@ -52,7 +69,7 @@ export class MongoDbAction extends ActionsBase {
     }
 
     async find(query: VQueryT.Find) {
-        const { collection, search, dbFindOpts = {}, context } = query;
+        const { collection, search, dbFindOpts = {}, findOpts, context } = query;
         const coll = this._getCollection(collection);
 
         const { reverse = false, offset = 0, limit = -1, sortBy, sortAsc = true, min, max, avg, groupBy, count } = dbFindOpts;
@@ -69,51 +86,55 @@ export class MongoDbAction extends ActionsBase {
             if (offset > 0) cursor = cursor.skip(offset);
             if (limit !== -1) cursor = cursor.limit(limit);
             const results = await cursor.toArray();
-            return cleanDocs(results);
+            return this._applyFindOpts(cleanDocs(results), findOpts);
         }
 
         if (needsAggregation && needsNativeFallback) {
             const mongoQuery = translateQuery(search);
-            return await nativeAggregate(coll, mongoQuery, dbFindOpts);
+            const results = await nativeAggregate(coll, mongoQuery, dbFindOpts);
+            return this._applyFindOpts(results, findOpts);
         }
 
         if (searchIsFunc) {
             const all = await coll.find({}).toArray();
             let filtered = cleanDocs(all).filter((d: any) => search(d, context));
-            return await findUtil(query, filtered, [""]);
+            const results = await findUtil(query, filtered, [""]);
+            return this._applyFindOpts(results, findOpts);
         }
 
         if (needsJsFallback(search)) {
             const all = await coll.find({}).toArray();
             const allData = cleanDocs(all).filter((d: any) => hasFieldsAdvanced(d, search));
-            return await findUtil(query, allData, [""]);
+            const results = await findUtil(query, allData, [""]);
+            return this._applyFindOpts(results, findOpts);
         }
 
         const mongoQuery = translateQuery(search);
         const results = await coll.find(mongoQuery).toArray();
         const clean = cleanDocs(results);
-        return await findUtil(query, clean, [""]);
+        const found = await findUtil(query, clean, [""]);
+        return this._applyFindOpts(found, findOpts);
     }
 
     async findOne(query: VQueryT.FindOne) {
-        const { collection, search, context } = query;
+        const { collection, search, findOpts, context } = query;
         const coll = this._getCollection(collection);
 
         if (typeof search === "function") {
             const all = await coll.find({}).toArray();
             const found = cleanDocs(all).find((d: any) => search(d, context));
-            return found ?? null;
+            return this._applyFindOpts(found ?? null, findOpts);
         }
 
         if (needsJsFallback(search)) {
             const all = await coll.find({}).toArray();
             const found = cleanDocs(all).find((d: any) => hasFieldsAdvanced(d, search));
-            return found ?? null;
+            return this._applyFindOpts(found ?? null, findOpts);
         }
 
         const mongoQuery = translateQuery(search);
         const result = await coll.findOne(mongoQuery);
-        return cleanDocs(result);
+        return this._applyFindOpts(cleanDocs(result), findOpts);
     }
 
     async update(query: VQueryT.Update) {
@@ -243,6 +264,9 @@ export class MongoDbAction extends ActionsBase {
     }
 
     async ensureCollection(collection: string) {
+        if (await this.issetCollection(collection))
+            return false;
+
         try {
             await this._db.createCollection(collection);
             return true;
