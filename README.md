@@ -26,7 +26,7 @@ try {
     const newUser = await db.c("users").add({ name: "John Doe", age: 30 });
     console.log(newUser);
 } finally {
-    await actions.close();
+    await db.close();
 }
 ```
 

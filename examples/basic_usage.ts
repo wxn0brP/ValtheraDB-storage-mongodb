@@ -36,5 +36,5 @@ try {
     console.error(`An error occurred:`, error);
 } finally {
     await db.removeCollection(`new_collection`);
-    await actions.close();
+    await db.close();
 }
