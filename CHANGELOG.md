@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.111.2-alpha.0](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.111.1...v0.111.2-alpha.0) (2026-06-05)
+
+
+### Features
+
+* bump db-core ([b86b6f5](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/commit/b86b6f58c2335c50a18ee0c4518029bbf8b21487))
+
 ### [0.111.1](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.111.0...v0.111.1) (2026-06-02)
 
 
