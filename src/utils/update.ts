@@ -40,6 +40,10 @@ export function translateUpdater(updater: any): Record<string, any> {
                 mongoUpdate.$pull ??= {};
                 Object.assign(mongoUpdate.$pull, val);
                 break;
+            case "$pushall":
+                mongoUpdate.$push ??= {};
+                for (const f in val) mongoUpdate.$push[f] = { $each: val[f] };
+                break;
             case "$pullall":
                 mongoUpdate.$pull ??= {};
                 for (const f in val) mongoUpdate.$pull[f] = { $in: val[f] };
