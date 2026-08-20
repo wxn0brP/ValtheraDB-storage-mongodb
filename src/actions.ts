@@ -82,7 +82,17 @@ export class MongoDbAction extends ActionsBase {
         if (canUseNative) {
             const mongoQuery = translateQuery(search);
             let cursor = coll.find(mongoQuery);
-            if (sortBy) cursor = cursor.sort({ [sortBy]: sortAsc ? 1 : -1 });
+            if (sortBy) {
+                if (Array.isArray(sortBy)) {
+                    const sortObj: Record<string, 1 | -1> = {};
+                    for (const s of sortBy) {
+                        sortObj[s.field as string] = s.asc === false ? -1 : 1;
+                    }
+                    cursor = cursor.sort(sortObj);
+                } else {
+                    cursor = cursor.sort({ [sortBy]: sortAsc ? 1 : -1 });
+                }
+            }
             if (offset > 0) cursor = cursor.skip(offset);
             if (limit !== -1) cursor = cursor.limit(limit);
             const results = await cursor.toArray();

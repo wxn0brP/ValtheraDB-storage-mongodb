@@ -5,7 +5,7 @@ const MONGO_URI = "mongodb://localhost:27017";
 const DB_NAME = "vdb-mongo-bridge-test";
 
 const actions = new MongoDbAction(MONGO_URI, DB_NAME);
-const db = new ValtheraClass({ dbAction: actions });
+const db = new ValtheraClass({ adapter: actions });
 
 try {
     console.log(`Checking if "new_collection" exists...`);
