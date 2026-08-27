@@ -38,7 +38,9 @@ describe("translateQuery", () => {
 				name: null,
 			}),
 		).toEqual({
-			name: null,
+			name: {
+				$type: "null",
+			},
 		});
 	});
 
@@ -179,7 +181,9 @@ describe("translateQuery", () => {
 			}),
 		).toEqual({
 			deleted: {
-				$ne: null,
+				$not: {
+					$type: "null",
+				},
 			},
 		});
 	});
