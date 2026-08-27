@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import { MongoDbAction } from "../src/index.ts";
+import { MongoDbAction } from "../src/index";
 
 const MONGO_URI = process.env.MONGO_URI ?? "mongodb://localhost:27017";
 const DB_NAME = process.env.MONGO_DB_NAME ?? "vdb-mongo-bridge-test";
