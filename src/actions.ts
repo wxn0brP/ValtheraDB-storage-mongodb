@@ -9,10 +9,12 @@ import { Collection, Db, MongoClient, MongoClientOptions } from "mongodb";
 import { cleanDocs, needsJsFallback, translateQuery } from "./utils";
 import { nativeAggregate } from "./utils/aggregate";
 import { isEmptyUpdate, resolveSearch, translateUpdater } from "./utils/update";
+import { version } from "./version";
 
 export class MongoDbAction extends ActionsBase {
 	_client: MongoClient;
 	_db: Db;
+	version = version;
 
 	constructor(
 		mongoUri: string,
