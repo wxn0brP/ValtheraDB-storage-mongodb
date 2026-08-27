@@ -53,7 +53,11 @@ export function translateQuery(query: any): any {
 
 	for (const key in exactFields) {
 		const val = exactFields[key];
-		if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+		if (val === null) {
+			mongoQuery[key] = {
+				$type: "null",
+			};
+		} else if (typeof val === "object" && !Array.isArray(val)) {
 			const nested = translateQuery(val);
 			if (
 				nested &&
@@ -144,6 +148,7 @@ function translateOperator(
 		case "$lte":
 		case "$in":
 		case "$nin":
+		case "$ne":
 		case "$size":
 			target[op] = value;
 			break;
@@ -160,6 +165,10 @@ function translateOperator(
 			break;
 		case "$startswith":
 			target.$regex = `^${escapeRegex(value)}`;
+			break;
+		case "$istartswith":
+			target.$regex = `^${escapeRegex(value)}`;
+			target.$options = "i";
 			break;
 		case "$endswith":
 			target.$regex = `${escapeRegex(value)}$`;

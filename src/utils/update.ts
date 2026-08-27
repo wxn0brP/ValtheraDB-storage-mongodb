@@ -13,7 +13,12 @@ export function translateUpdater(updater: any): Record<string, any> {
 
 	for (const key in updater) {
 		if (!key.startsWith("$")) {
-			directSet[key] = updater[key];
+			if (updater[key] === undefined) {
+				mongoUpdate.$unset ??= {};
+				mongoUpdate.$unset[key] = "";
+			} else {
+				directSet[key] = updater[key];
+			}
 			continue;
 		}
 		const op = key.toLowerCase();

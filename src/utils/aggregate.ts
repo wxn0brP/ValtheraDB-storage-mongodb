@@ -12,6 +12,8 @@ export async function nativeAggregate(
 		avg,
 		groupBy,
 		count,
+		sum,
+		distinct,
 		sortBy,
 		sortAsc,
 		offset = 0,
@@ -24,6 +26,38 @@ export async function nativeAggregate(
 		pipeline.push({
 			$match: mongoQuery,
 		});
+	}
+
+	if (distinct && !groupBy) {
+		pipeline.push({
+			$group: {
+				_id: `$${distinct}`,
+			},
+		});
+		pipeline.push({
+			$project: {
+				_id: 0,
+				[distinct]: "$_id",
+			},
+		});
+		if (sortBy) {
+			pipeline.push({
+				$sort: {
+					[sortBy]: sortAsc ? 1 : -1,
+				},
+			});
+		}
+		if (offset > 0)
+			pipeline.push({
+				$skip: offset,
+			});
+		if (limit !== -1)
+			pipeline.push({
+				$limit: limit,
+			});
+		const results = await coll.aggregate(pipeline).toArray();
+		if (reverse) results.reverse();
+		return cleanDocs(results);
 	}
 
 	const groupStage: Record<string, any> = {
@@ -84,6 +118,12 @@ export async function nativeAggregate(
 				$avg: `$${avg[alias]}`,
 			};
 
+	if (sum)
+		for (const alias in sum)
+			groupStage[alias] = {
+				$sum: `$${sum[alias]}`,
+			};
+
 	pipeline.push({
 		$group: groupStage,
 	});
@@ -120,6 +160,7 @@ export async function nativeAggregate(
 	if (min) for (const alias in min) projectStage[alias] = 1;
 	if (max) for (const alias in max) projectStage[alias] = 1;
 	if (avg) for (const alias in avg) projectStage[alias] = 1;
+	if (sum) for (const alias in sum) projectStage[alias] = 1;
 
 	pipeline.push({
 		$project: projectStage,
@@ -143,16 +184,6 @@ export async function nativeAggregate(
 		});
 
 	const results = await coll.aggregate(pipeline).toArray();
-	if (results.length === 0 && !groupBy) {
-		const defaultResult: Record<string, any> = {};
-		if (count) for (const alias in count) defaultResult[alias] = 0;
-
-		if (min) for (const alias in min) defaultResult[alias] = null;
-		if (max) for (const alias in max) defaultResult[alias] = null;
-		if (avg) for (const alias in avg) defaultResult[alias] = null;
-
-		results.push(defaultResult);
-	}
 	if (reverse && !sortBy) results.reverse();
 	return cleanDocs(results);
 }

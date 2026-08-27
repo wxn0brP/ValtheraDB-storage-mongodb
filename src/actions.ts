@@ -99,9 +99,12 @@ export class MongoDbAction extends ActionsBase {
 			avg,
 			groupBy,
 			count,
+			sum,
+			distinct,
 		} = dbFindOpts;
 
-		const needsAggregation = min || max || avg || groupBy || count;
+		const needsAggregation =
+			min || max || avg || groupBy || count || sum || distinct;
 		const searchIsFunc = typeof search === "function";
 		const needsNativeFallback = !searchIsFunc && !needsJsFallback(search);
 		const canUseNative =
