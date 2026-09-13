@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.120.2-alpha.0](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.120.1...v0.120.2-alpha.0) (2026-09-13)
+
+
+### Features
+
+* experimental transaction ([5d6c131](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/commit/5d6c1311c3d0cb56e211f7b29edd250533882675))
+
+
+### Bug Fixes
+
+* edge case ([7580b21](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/commit/7580b2107015fe4db768ca899ab8c06d0c4bd8ef))
+
 ### [0.120.1](https://github.com/wxn0brP/ValtheraDB-storage-mongodb/compare/v0.120.0...v0.120.1) (2026-08-27)
 
 
