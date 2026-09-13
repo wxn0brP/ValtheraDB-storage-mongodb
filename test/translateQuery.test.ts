@@ -662,6 +662,36 @@ describe("translateQuery", () => {
 		});
 	});
 
+	it("40b. handles $iendswith operator", () => {
+		expect(
+			translateQuery({
+				$iendswith: {
+					name: "bar",
+				},
+			}),
+		).toEqual({
+			name: {
+				$regex: "bar$",
+				$options: "i",
+			},
+		});
+	});
+
+	it("40c. escapes regex special chars in $iendswith", () => {
+		expect(
+			translateQuery({
+				$iendswith: {
+					name: "foo$",
+				},
+			}),
+		).toEqual({
+			name: {
+				$regex: "foo\\$$",
+				$options: "i",
+			},
+		});
+	});
+
 	it("41. handles $type with known type", () => {
 		expect(
 			translateQuery({

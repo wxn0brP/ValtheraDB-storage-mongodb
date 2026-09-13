@@ -52,6 +52,7 @@ export async function nativeAggregate(
 			pipeline.push({
 				$skip: offset,
 			});
+		if (limit === 0) return [];
 		if (limit !== -1)
 			pipeline.push({
 				$limit: limit,
@@ -179,6 +180,7 @@ export async function nativeAggregate(
 		pipeline.push({
 			$skip: offset,
 		});
+	if (limit === 0) return [];
 	if (limit !== -1)
 		pipeline.push({
 			$limit: limit,

@@ -173,6 +173,10 @@ function translateOperator(
 		case "$endswith":
 			target.$regex = `${escapeRegex(value)}$`;
 			break;
+		case "$iendswith":
+			target.$regex = `${escapeRegex(value)}$`;
+			target.$options = "i";
+			break;
 		case "$between": {
 			if (Array.isArray(value)) {
 				if (value[0] !== undefined) target.$gte = value[0];

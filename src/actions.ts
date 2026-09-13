@@ -149,6 +149,7 @@ export class MongoDbAction extends ActionsBase {
 				}
 			}
 			if (offset > 0) cursor = cursor.skip(offset);
+			if (limit === 0) return [];
 			if (limit !== -1) cursor = cursor.limit(limit);
 			const results = await cursor.toArray();
 			return this._applyFindOpts(cleanDocs(results), findOpts);
