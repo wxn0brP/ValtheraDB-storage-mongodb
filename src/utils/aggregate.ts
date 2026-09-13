@@ -5,6 +5,7 @@ export async function nativeAggregate(
 	coll: Collection,
 	mongoQuery: any,
 	dbFindOpts: any,
+	opts: any = {},
 ) {
 	const {
 		min,
@@ -55,7 +56,7 @@ export async function nativeAggregate(
 			pipeline.push({
 				$limit: limit,
 			});
-		const results = await coll.aggregate(pipeline).toArray();
+		const results = await coll.aggregate(pipeline, opts).toArray();
 		if (reverse) results.reverse();
 		return cleanDocs(results);
 	}
@@ -183,7 +184,7 @@ export async function nativeAggregate(
 			$limit: limit,
 		});
 
-	const results = await coll.aggregate(pipeline).toArray();
+	const results = await coll.aggregate(pipeline, opts).toArray();
 	if (reverse && !sortBy) results.reverse();
 	return cleanDocs(results);
 }

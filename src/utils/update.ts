@@ -138,9 +138,10 @@ export async function resolveSearch(
 	search: any,
 	coll: Collection,
 	context?: any,
+	opts: any = {},
 ) {
 	if (typeof search === "function") {
-		const all = await coll.find({}).toArray();
+		const all = await coll.find({}, opts).toArray();
 		const filtered = cleanDocs(all).filter((d: any) => search(d, context));
 		return {
 			filter: null,
@@ -151,7 +152,7 @@ export async function resolveSearch(
 	const mongoQuery = translateQuery(search);
 
 	if (needsJsFallback(search)) {
-		const all = await coll.find({}).toArray();
+		const all = await coll.find({}, opts).toArray();
 		const allData = cleanDocs(all).filter((d: any) =>
 			hasFieldsAdvanced(d, search),
 		);

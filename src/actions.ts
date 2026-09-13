@@ -1,11 +1,19 @@
+import { Id } from "@wxn0brp/db-core";
 import { ActionsBase } from "@wxn0brp/db-core/base/actions";
 import { addId } from "@wxn0brp/db-core/helpers/addId";
 import { DataInternal } from "@wxn0brp/db-core/types/data";
 import { VQueryT } from "@wxn0brp/db-core/types/query";
+import { TransactionHandle } from "@wxn0brp/db-core/types/transaction";
 import { findUtil } from "@wxn0brp/db-core/utils/action";
 import { hasFieldsAdvanced } from "@wxn0brp/db-core/utils/hasFieldsAdvanced";
 import { updateFindObject } from "@wxn0brp/db-core/utils/updateFindObject";
-import { Collection, Db, MongoClient, MongoClientOptions } from "mongodb";
+import {
+	ClientSession,
+	Collection,
+	Db,
+	MongoClient,
+	MongoClientOptions,
+} from "mongodb";
 import { cleanDocs, needsJsFallback, translateQuery } from "./utils";
 import { nativeAggregate } from "./utils/aggregate";
 import { isEmptyUpdate, resolveSearch, translateUpdater } from "./utils/update";
@@ -14,6 +22,7 @@ import { version } from "./version";
 export class MongoDbAction extends ActionsBase {
 	_client: MongoClient;
 	_db: Db;
+	_session: ClientSession | null = null;
 	version = version;
 
 	constructor(
@@ -68,25 +77,35 @@ export class MongoDbAction extends ActionsBase {
 	async add(query: VQueryT.Add) {
 		const { collection, data } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
 		if (query.id_gen === false && !data._id) {
 			const dataToInsert = {
 				...data,
 				_vdb_no_id: true,
 			};
-			await coll.insertOne(dataToInsert);
+			await coll.insertOne(dataToInsert, opts);
 			return data;
 		}
 
 		await addId(query, this);
 
-		await coll.insertOne(data);
+		await coll.insertOne(data, opts);
 		return data;
 	}
 
 	async find(query: VQueryT.Find) {
 		const { collection, search, dbFindOpts = {}, findOpts, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
 		const {
 			reverse = false,
@@ -115,7 +134,7 @@ export class MongoDbAction extends ActionsBase {
 
 		if (canUseNative) {
 			const mongoQuery = translateQuery(search);
-			let cursor = coll.find(mongoQuery);
+			let cursor = coll.find(mongoQuery, opts);
 			if (sortBy) {
 				if (Array.isArray(sortBy)) {
 					const sortObj: Record<string, 1 | -1> = {};
@@ -137,12 +156,12 @@ export class MongoDbAction extends ActionsBase {
 
 		if (needsAggregation && needsNativeFallback) {
 			const mongoQuery = translateQuery(search);
-			const results = await nativeAggregate(coll, mongoQuery, dbFindOpts);
+			const results = await nativeAggregate(coll, mongoQuery, dbFindOpts, opts);
 			return this._applyFindOpts(results, findOpts);
 		}
 
 		if (searchIsFunc) {
-			const all = await coll.find({}).toArray();
+			const all = await coll.find({}, opts).toArray();
 			const filtered = cleanDocs(all).filter((d: any) => search(d, context));
 			const results = await findUtil(query, filtered, [
 				"",
@@ -151,7 +170,7 @@ export class MongoDbAction extends ActionsBase {
 		}
 
 		if (needsJsFallback(search)) {
-			const all = await coll.find({}).toArray();
+			const all = await coll.find({}, opts).toArray();
 			const allData = cleanDocs(all).filter((d: any) =>
 				hasFieldsAdvanced(d, search),
 			);
@@ -162,7 +181,7 @@ export class MongoDbAction extends ActionsBase {
 		}
 
 		const mongoQuery = translateQuery(search);
-		const results = await coll.find(mongoQuery).toArray();
+		const results = await coll.find(mongoQuery, opts).toArray();
 		const clean = cleanDocs(results);
 		const found = await findUtil(query, clean, [
 			"",
@@ -173,15 +192,20 @@ export class MongoDbAction extends ActionsBase {
 	async findOne(query: VQueryT.FindOne) {
 		const { collection, search, findOpts, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
 		if (typeof search === "function") {
-			const all = await coll.find({}).toArray();
+			const all = await coll.find({}, opts).toArray();
 			const found = cleanDocs(all).find((d: any) => search(d, context));
 			return this._applyFindOpts(found ?? null, findOpts);
 		}
 
 		if (needsJsFallback(search)) {
-			const all = await coll.find({}).toArray();
+			const all = await coll.find({}, opts).toArray();
 			const found = cleanDocs(all).find((d: any) =>
 				hasFieldsAdvanced(d, search),
 			);
@@ -189,17 +213,27 @@ export class MongoDbAction extends ActionsBase {
 		}
 
 		const mongoQuery = translateQuery(search);
-		const result = await coll.findOne(mongoQuery);
+		const result = await coll.findOne(mongoQuery, opts);
 		return this._applyFindOpts(cleanDocs(result), findOpts);
 	}
 
 	async update(query: VQueryT.Update) {
 		const { collection, search, updater, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
 		if (typeof updater === "function") {
-			const { filter, allData } = await resolveSearch(search, coll, context);
-			const toUpdate = allData ?? (await coll.find(filter).toArray());
+			const { filter, allData } = await resolveSearch(
+				search,
+				coll,
+				context,
+				opts,
+			);
+			const toUpdate = allData ?? (await coll.find(filter, opts).toArray());
 			const updated = [];
 			for (const doc of cleanDocs(toUpdate)) {
 				const mod = updater(doc, context);
@@ -211,6 +245,7 @@ export class MongoDbAction extends ActionsBase {
 						{
 							$set: mod,
 						},
+						opts,
 					);
 					Object.assign(doc, mod);
 				}
@@ -219,7 +254,12 @@ export class MongoDbAction extends ActionsBase {
 			return updated;
 		}
 
-		const { filter, allData } = await resolveSearch(search, coll, context);
+		const { filter, allData } = await resolveSearch(
+			search,
+			coll,
+			context,
+			opts,
+		);
 		if (allData !== null) {
 			const mongoUpdate = translateUpdater(updater);
 			if (!isEmptyUpdate(mongoUpdate)) {
@@ -229,6 +269,7 @@ export class MongoDbAction extends ActionsBase {
 							_id: doc._id,
 						},
 						mongoUpdate,
+						opts,
 					);
 				}
 			}
@@ -237,26 +278,36 @@ export class MongoDbAction extends ActionsBase {
 
 		const mongoUpdate = translateUpdater(updater);
 		if (!isEmptyUpdate(mongoUpdate)) {
-			await coll.updateMany(filter!, mongoUpdate);
-			const result = await coll.find(filter).toArray();
+			await coll.updateMany(filter!, mongoUpdate, opts);
+			const result = await coll.find(filter, opts).toArray();
 			return cleanDocs(result);
 		}
-		const emptyResult = await coll.find(filter).toArray();
+		const emptyResult = await coll.find(filter, opts).toArray();
 		return cleanDocs(emptyResult);
 	}
 
 	async updateOne(query: VQueryT.Update) {
 		const { collection, search, updater, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
 		if (typeof updater === "function") {
-			const { filter, allData } = await resolveSearch(search, coll, context);
+			const { filter, allData } = await resolveSearch(
+				search,
+				coll,
+				context,
+				opts,
+			);
 
 			let doc: any;
 			if (allData !== null) {
 				doc = allData[0] ?? null;
 			} else {
-				doc = await coll.findOne(filter);
+				doc = await coll.findOne(filter, opts);
 			}
 
 			if (!doc) return null;
@@ -269,13 +320,19 @@ export class MongoDbAction extends ActionsBase {
 					{
 						$set: mod,
 					},
+					opts,
 				);
 				Object.assign(doc, mod);
 			}
 			return cleanDocs(doc) as DataInternal | null;
 		}
 
-		const { filter, allData } = await resolveSearch(search, coll, context);
+		const { filter, allData } = await resolveSearch(
+			search,
+			coll,
+			context,
+			opts,
+		);
 
 		if (allData !== null) {
 			const doc = allData[0] ?? null;
@@ -287,17 +344,18 @@ export class MongoDbAction extends ActionsBase {
 						_id: doc._id,
 					},
 					mongoUpdate,
+					opts,
 				);
 			}
 			return doc;
 		}
 
 		const mongoUpdate = translateUpdater(updater);
-		const result = await coll.findOne(filter);
+		const result = await coll.findOne(filter, opts);
 		if (!result) return null;
 		if (!isEmptyUpdate(mongoUpdate)) {
-			await coll.updateOne(filter, mongoUpdate);
-			const updated = await coll.findOne(filter);
+			await coll.updateOne(filter, mongoUpdate, opts);
+			const updated = await coll.findOne(filter, opts);
 			return cleanDocs(updated) as DataInternal | null;
 		}
 		return cleanDocs(result) as DataInternal | null;
@@ -306,40 +364,66 @@ export class MongoDbAction extends ActionsBase {
 	async remove(query: VQueryT.Remove) {
 		const { collection, search, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
-		const { filter, allData } = await resolveSearch(search, coll, context);
+		const { filter, allData } = await resolveSearch(
+			search,
+			coll,
+			context,
+			opts,
+		);
 
 		if (allData !== null) {
 			for (const doc of allData) {
-				await coll.deleteOne({
-					_id: doc._id,
-				});
+				await coll.deleteOne(
+					{
+						_id: doc._id,
+					},
+					opts,
+				);
 			}
 			return allData;
 		}
 
-		const result = await coll.find(filter).toArray();
-		await coll.deleteMany(filter);
+		const result = await coll.find(filter, opts).toArray();
+		await coll.deleteMany(filter, opts);
 		return cleanDocs(result) as DataInternal[];
 	}
 
 	async removeOne(query: VQueryT.Remove) {
 		const { collection, search, context } = query;
 		const coll = this._getCollection(collection);
+		const opts = this._session
+			? {
+					session: this._session,
+				}
+			: {};
 
-		const { filter, allData } = await resolveSearch(search, coll, context);
+		const { filter, allData } = await resolveSearch(
+			search,
+			coll,
+			context,
+			opts,
+		);
 
 		if (allData !== null) {
 			const doc = allData[0] ?? null;
 			if (doc)
-				await coll.deleteOne({
-					_id: doc._id,
-				});
+				await coll.deleteOne(
+					{
+						_id: doc._id,
+					},
+					opts,
+				);
 			return doc;
 		}
 
-		const result = await coll.findOne(filter);
-		if (result) await coll.deleteOne(filter);
+		const result = await coll.findOne(filter, opts);
+		if (result) await coll.deleteOne(filter, opts);
 		return cleanDocs(result) as DataInternal | null;
 	}
 
@@ -373,5 +457,28 @@ export class MongoDbAction extends ActionsBase {
 			if (error.codeName === "NamespaceNotFound") return true;
 			throw error;
 		}
+	}
+
+	async beginTransaction(id: Id): Promise<TransactionHandle> {
+		this._session = this._client.startSession();
+		this._session.startTransaction();
+		return {
+			id,
+			_adapterData: this._session,
+		};
+	}
+
+	async commitTransaction(handle: TransactionHandle) {
+		const session = handle._adapterData as ClientSession;
+		await session.commitTransaction();
+		await session.endSession();
+		this._session = null;
+	}
+
+	async rollbackTransaction(handle: TransactionHandle) {
+		const session = handle._adapterData as ClientSession;
+		await session.abortTransaction();
+		await session.endSession();
+		this._session = null;
 	}
 }
