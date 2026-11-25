@@ -1,0 +1,41 @@
+import { Id } from "@wxn0brp/db-core";
+import { AdapterBase } from "@wxn0brp/db-core/base/adapter";
+import { DataInternal } from "@wxn0brp/db-core/types/data";
+import { VQueryT } from "@wxn0brp/db-core/types/query";
+import { TransactionHandle } from "@wxn0brp/db-core/types/transaction";
+import { ClientSession, Collection, Db, MongoClient, MongoClientOptions } from "mongodb";
+export declare class MongoDbAdapter extends AdapterBase {
+    _client: MongoClient;
+    _db: Db;
+    _session: ClientSession | null;
+    version: string;
+    capabilities: {
+        transactions: boolean;
+        indexes: boolean;
+        persistent: boolean;
+    };
+    constructor(mongoUri: string, dbName: string, clientOpts?: MongoClientOptions);
+    init(): Promise<void>;
+    close(): Promise<void>;
+    _getCollection(name: string): Collection;
+    _applyFindOpts<T extends DataInternal | DataInternal[] | null | undefined>(data: T, findOpts: VQueryT.Find["findOpts"]): T;
+    add(query: VQueryT.Add): Promise<import("@wxn0brp/db-core/types/utils").FieldsOf<import("@wxn0brp/db-core/types/utils").WithId<import("@wxn0brp/db-core/types/data").Data>>>;
+    bulkAdd(query: VQueryT.BulkAdd): Promise<import("@wxn0brp/db-core/types/utils").FieldsOf<import("@wxn0brp/db-core/types/utils").WithId<import("@wxn0brp/db-core/types/data").Data>>[]>;
+    find(query: VQueryT.Find): Promise<import("@wxn0brp/db-core/types/data").Data[]>;
+    findOne(query: VQueryT.FindOne): Promise<import("mongodb").WithId<import("bson").Document>>;
+    update(config: VQueryT.Update): Promise<any>;
+    updateOne(config: VQueryT.Update): Promise<any>;
+    remove(config: VQueryT.Remove): Promise<any>;
+    removeOne(config: VQueryT.Remove): Promise<any>;
+    getCollections(): Promise<string[]>;
+    ensureCollection(collection: string): Promise<boolean>;
+    issetCollection(collection: string): Promise<boolean>;
+    removeCollection(collection: string): Promise<boolean>;
+    beginTransaction(id: Id, _collections: string[]): Promise<TransactionHandle>;
+    commitTransaction(handle: TransactionHandle): Promise<void>;
+    rollbackTransaction(handle: TransactionHandle): Promise<void>;
+    _txSession(transaction?: TransactionHandle): ClientSession | undefined;
+    createIndex(config: VQueryT.CreateIndex): Promise<void>;
+    removeIndex(config: VQueryT.RemoveIndex): Promise<void>;
+    count(config: VQueryT.Count): Promise<number>;
+}
